@@ -67,7 +67,7 @@ def main():
 		print("testing model")
 		model = HiLSTM(args, device=device)
 		model.to(device)
-		train.test(model, args, test_iter, path="./checkpoint_finish/epoch_32.pt")
+		train.test(model, args, test_iter, path="./checkpoints_"+args.dataset+"/epoch_16.pt")
 	else:
 		device = "cuda" if torch.cuda.is_available() else "cpu"
 		model = HiLSTM(args, device=device)

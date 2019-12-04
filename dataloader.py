@@ -104,6 +104,7 @@ class DataProcess(Dataset):
             ans.append(self.idx2char[idx])
 
     def paddingsentence(self, maxaspect=10, maxlength=21):
+        #一句话padding到长度为21
         padding_text = []
         for sentence in self.tokenized:
             partly = []
