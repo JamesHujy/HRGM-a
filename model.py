@@ -57,7 +57,7 @@ class HiLSTM(nn.Module):
             cp_0 = cp_n
         return overall_logits
 
-    def generate(self, V_s, ViList, max_aspect=10):
+    def generate(self, V_s, ViList, max_aspect=10, beginning_index=None):
         self.batch_size = 1
         hp_0 = self.MLP(V_s)
         xp_0 = torch.zeros(self.batch_size, self.embed_size).to(self.device)
@@ -72,18 +72,19 @@ class HiLSTM(nn.Module):
 
             hs_0 = self.attn(torch.cat((hp_n, E_i),1))
             cs_0 = torch.zeros(self.batch_size, self.hidden_size).to(self.device)
-            history = torch.LongTensor([30714]).unsqueeze(0) # 30714是起始符
+            history = torch.LongTensor([beginning_index]).unsqueeze(0) 
             print(history)
-            while True:
+            for j in range(100):
                 word = self.embed(history)
                 output, (hs_n, _) = self.lstmS(word, (hs_0.unsqueeze(0), cs_0.unsqueeze(0)))
-                logits = self.Classifier(output[0])
-                logits = F.softmax(logits[0])
-
+                print(output.shape)
+                logits = self.Classifier(output[:,-1,:])
                 
+                logits = F.softmax(logits[0])
+ 
                 index = torch.argmax(logits).unsqueeze(0).unsqueeze(0)
                 print("logits",logits)
-                print("index",index.unsqueeze(0))
+                print("index",index)
                 print("history",history)
                 history = torch.cat((history, index),1)
                 print("index",index.data)

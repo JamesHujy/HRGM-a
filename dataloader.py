@@ -15,22 +15,19 @@ class DataProcess(Dataset):
         self.ViList = []
         self.label_num = label_num
         self.vocab = pickle.load(open(self.prefix + "vocab.pickle",'rb'))
-        self.idx2char = { value:keys for (keys, value) in self.vocab.items()}
+        self.idx2char = {value:keys for (keys, value) in self.vocab.items()}
         self.tokenized = []
         self.batch_size = batch_size
-        try:
-            self.load()
-        except:
-            self.read_data()
-            self.get_Vs()
-            self.get_Vi()
-            self.char2idx()
-    
-    def load(self):
-        self.VsList = pickle.load(open("VsList.pickle",'r'))
-        self.ViList = pickle.load(open("ViList.pickle",'r'))
-        self.tokenized = pickle.load(open("tokenized.pickle",'r'))
-        print("loading finish")
+        self.read_data()
+        self.get_Vs()
+        self.get_Vi()
+        self.char2idx()
+
+    def get_padding_index(self):
+        return self.vocab['PAD']
+
+    def get_beginning_index(self):
+        return self.vocab['SGO']
 
     def read_data(self):
         with open(self.prefix + self.filename, "r") as f:
@@ -93,6 +90,7 @@ class DataProcess(Dataset):
                     except:
                         idx = self.vocab['UNK']
                     idxes.append(idx)
+                idxes.append(self.vocab['</S>'])
                 partly.append(idxes)
             tokenized.append(partly)
         self.tokenized = tokenized
@@ -103,27 +101,22 @@ class DataProcess(Dataset):
         for idx in index:
             ans.append(self.idx2char[idx])
 
-    def paddingsentence(self, maxaspect=10, maxlength=21):
-        #一句话padding到长度为21
+    def paddingsentence(self, maxaspect=10, maxlength=22):
+        #一句话padding到长度为20
         padding_text = []
         for sentence in self.tokenized:
             partly = []
             for part in sentence:
-                zeros = [30715] * (maxlength - len(part))
+                zeros = [self.vocab['PAD']] * (maxlength - len(part))
                 part.extend(zeros)
-                part.append(self.vocab['</S>'])
                 partly.append(part)
 
-            
             for i in range(maxaspect - len(sentence)):
-                
-                padding = [30715]*(maxlength + 1)
-                
+                padding = [self.vocab['PAD']]*(maxlength)
                 partly.append(padding)  
-                         
+            
             padding_text.append(partly)
         self.tokenized = padding_text
-        #print(np.array(self.tokenized).shape)
         with open("tokenized.pkl", "wb") as f:
             pickle.dump(self.tokenized, f)
 
