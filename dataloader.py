@@ -5,13 +5,15 @@ import numpy as np
 import torch
 
 class DataProcess(Dataset):
-    def __init__(self, label_num=6, batch_size=1, filename="ltrain_1121.json", fileprefix="/data/disk3/private/chenhuimin/rewgen/code/rewgen_dual_pral/data/train_rb/"):
+    def __init__(self, label_num=6, batch_size=1, dataset=None,filename="ltrain_1121.json", fileprefix="/data/disk3/private/chenhuimin/rewgen/code/rewgen_dual_pral/data/train_rb/"):
         self.prefix = fileprefix
         self.filename = filename
         self.textList = []
         self.aslabelsList = []
         self.ratelabelList = []
         self.VsList = []
+        self.dataset = dataset
+        self.stars = []
         self.ViList = []
         self.label_num = label_num
         self.vocab = pickle.load(open(self.prefix + "vocab.pickle",'rb'))
@@ -22,6 +24,7 @@ class DataProcess(Dataset):
         self.get_Vs()
         self.get_Vi()
         self.char2idx()
+        
 
     def get_padding_index(self):
         return self.vocab['PAD']
@@ -39,12 +42,47 @@ class DataProcess(Dataset):
             else:
                 text = rewdic['text']
             self.textList.append(text)
+            if self.dataset is not None:
+                self.write_data()
+            if self.dataset is not None:
+                self.write_aspect()
 
             if 'asplabels' in rewdic and 'ratelabels' in rewdic:
                 aslabels = rewdic['asplabels']
                 ratelabels = rewdic['ratelabels']
                 self.aslabelsList.append(aslabels)
                 self.ratelabelList.append(ratelabels)
+            
+    def write_aspect(self):
+        with open(self.prefix + self.filename, "r") as f:
+            lines = f.readlines()
+        for line in lines:
+            rewdic = json.loads(line)
+            self.stars.append(rewdic['stars'])
+        
+        index = 0
+        contentList = []
+        with open(self.dataset+"_dis.txt",'r') as f:
+            lines = f.readlines()
+
+        for (aslabels, ratelabels, stars) in zip(self.aslabelsList, self.ratelabelList, self.stars):
+            for (aspect, rate) in zip(aslabels, ratelabels):
+                content = "00#00#{}#{}#{}#{}####".format(stars, aspect, rate, lines[index].strip())
+                contentList.append(content)
+                index += 1 
+        with open("testfile_ctrl_{}.txt".format(self.dataset), 'w') as f:
+            f.write('\n'.join(contentList))
+
+    def write_data(self):
+        review = []
+        for sen in self.textList:
+            all_content = ""
+            for part in sen:
+                all_content += " ".join(part)
+                all_content += " "
+            review.append(all_content)
+        with open(self.dataset+"_ref.txt",'w') as f:
+            f.write('\n'.join(review))
         
     def get_Vs(self):
         totalList = []
@@ -96,10 +134,13 @@ class DataProcess(Dataset):
         self.tokenized = tokenized
         self.paddingsentence()
 
-    def idx2char(self, index):
+    def id2char(self, index):
         ans = []
         for idx in index:
+            if idx == self.vocab['</S>']:
+                return ans
             ans.append(self.idx2char[idx])
+        return ans
 
     def paddingsentence(self, maxaspect=10, maxlength=22):
         #一句话padding到长度为20

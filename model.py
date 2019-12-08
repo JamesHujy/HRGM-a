@@ -27,10 +27,10 @@ class HiLSTM(nn.Module):
 
         self.attn = nn.Linear(2*self.hidden_size, self.hidden_size)
 
-    def forward(self, V_s, ViList, input_id, max_aspect=10):
+    def forward(self, V_s, ViList, input_id, max_aspect=10, batch_size=None):
         hp_0 = self.MLP(V_s)   # LSTMP 的初始状态
-        xp_0 = torch.zeros(self.batch_size, self.embed_size).to(self.device) 
-        cp_0 = torch.zeros(self.batch_size, self.hidden_size).to(self.device)
+        xp_0 = torch.zeros(batch_size, self.embed_size).to(self.device) 
+        cp_0 = torch.zeros(batch_size, self.hidden_size).to(self.device)
         overall_logits = None
 
         for i in range(max_aspect):
@@ -40,7 +40,7 @@ class HiLSTM(nn.Module):
             E_i = self.MLP2(V_i)            
         
             hs_0 = self.attn(torch.cat((hp_n, E_i), 1)) 
-            cs_0 = torch.zeros(self.batch_size, self.hidden_size).to(self.device)
+            cs_0 = torch.zeros(batch_size, self.hidden_size).to(self.device)
             
             word = self.embed(input_id[:, i, :])
             
@@ -57,41 +57,37 @@ class HiLSTM(nn.Module):
             cp_0 = cp_n
         return overall_logits
 
-    def generate(self, V_s, ViList, max_aspect=10, beginning_index=None):
-        self.batch_size = 1
+    def generate(self, V_s, ViList, max_aspect=10, beginning_index=None,batch_size=1):
         hp_0 = self.MLP(V_s)
-        xp_0 = torch.zeros(self.batch_size, self.embed_size).to(self.device)
-        cp_0 = torch.zeros(self.batch_size, self.hidden_size).to(self.device)
+        xp_0 = torch.zeros(batch_size, self.embed_size).to(self.device)
+        cp_0 = torch.zeros(batch_size, self.hidden_size).to(self.device)
 
         all_index = []
-
         for i in range(max_aspect):           
             hp_n, cp_n = self.lstmP(xp_0, (hp_0, cp_0))
             V_i = ViList[:, i, :]
+            if(V_i.tolist()[0][0]==-1):
+                break
             E_i = self.MLP2(V_i)
 
             hs_0 = self.attn(torch.cat((hp_n, E_i),1))
-            cs_0 = torch.zeros(self.batch_size, self.hidden_size).to(self.device)
+            cs_0 = torch.zeros(batch_size, self.hidden_size).to(self.device)
             history = torch.LongTensor([beginning_index]).unsqueeze(0) 
-            print(history)
-            for j in range(100):
+            for j in range(20):
                 word = self.embed(history)
                 output, (hs_n, _) = self.lstmS(word, (hs_0.unsqueeze(0), cs_0.unsqueeze(0)))
-                print(output.shape)
                 logits = self.Classifier(output[:,-1,:])
                 
                 logits = F.softmax(logits[0])
  
                 index = torch.argmax(logits).unsqueeze(0).unsqueeze(0)
-                print("logits",logits)
-                print("index",index)
-                print("history",history)
                 history = torch.cat((history, index),1)
-                print("index",index.data)
-                print("history",history)
+                xp_0 = hs_n.squeeze(0)
+            hp_0 = hp_n
+            cp_0 = cp_n
                 
-            all_index.append(history)
-            print("index",all_index)
+            all_index.extend(history.tolist())
+        return all_index
 
 
 
